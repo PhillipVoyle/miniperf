@@ -17,12 +17,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace miniperf {
 
-    //template<typename TDuration>
+    template<typename TDuration>
     struct measurement
     {
         int count;
-        std::chrono::high_resolution_clock::duration total_duration;
-        std::chrono::high_resolution_clock::duration worst_duration;
+        TDuration total_duration;
+        TDuration worst_duration;
 
         measurement():count(0), total_duration(0), worst_duration(0)
         {
@@ -30,36 +30,39 @@ namespace miniperf {
         }
         measurement(
             int c,
-            std::chrono::high_resolution_clock::duration t,
-            std::chrono::high_resolution_clock::duration w):count(c), total_duration(t), worst_duration(w)
+            TDuration t,
+            TDuration w):count(c), total_duration(t), worst_duration(w)
         {
         }
     };
 
-    //template<typename TClock>
+    template<typename TClock>
     class generic_performance_tracker
     {
     public:
-        typedef std::map<std::string, measurement> map_t;
+        typedef typename TClock::duration duration_t;
+        typedef typename TClock::time_point time_point_t;
+        typedef measurement<duration_t> measurement_t;
+        typedef std::map<std::string, measurement_t> map_t;
 
-        std::chrono::high_resolution_clock::time_point begin_tracking() const {
-            return std::chrono::high_resolution_clock::now();
+        time_point_t begin_tracking() const {
+            return TClock::now();
         }
 
-        void end_tracking(const std::string& counter, std::chrono::high_resolution_clock::time_point beginning) {
-            auto end = std::chrono::high_resolution_clock::now();
+        void end_tracking(const std::string& counter, time_point_t beginning) {
+            auto end = TClock::now();
             auto durn = end - beginning;
 
             std::lock_guard<std::mutex> lock(mut_);
             auto it = durations_.find(counter);
             if (it == durations_.end())
             {
-                measurement m = {1, durn, durn};
+                measurement_t m = {1, durn, durn};
                 durations_[counter] = m;
             }
             else
             {
-                measurement& m = it->second;
+                measurement_t& m = it->second;
                 m.count++;
                 m.total_duration += durn;
                 if (durn > m.worst_duration)
@@ -83,5 +86,5 @@ namespace miniperf {
     };
 
 
-    using performance_tracker = generic_performance_tracker; //<std::chrono::high_resolution_clock>;
+    using performance_tracker = generic_performance_tracker<std::chrono::high_resolution_clock>;
 }
